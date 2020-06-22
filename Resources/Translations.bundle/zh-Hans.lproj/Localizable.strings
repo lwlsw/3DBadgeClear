@@ -1,10 +1,10 @@
-/* 
+/*
   Localizable.strings
-  notesCreator
+  3DBadgeClear
 
-  Created by Yannis on 18/01/14.
+  Created by Yannis on 2/5/20.
 
- */
+*/
 
 "Clear_Badge" = "清理角标";
-"Clear_Badges" = "清理角标";
+"Clear_Badges" = "清理所有角标";

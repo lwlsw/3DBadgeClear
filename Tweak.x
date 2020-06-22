@@ -2,6 +2,11 @@
 // See http://iphonedevwiki.net/index.php/Logos
 
 #define kBundlePath @"/Library/MobileSubstrate/DynamicLibraries/com.isklikas.3DBadgeClear-resources.bundle"
+#define preferencesPath @"/var/mobile/Library/Preferences/com.isklikas.3dbadgeclearprefs.plist"
+#define noctisEnabledPath @"/var/mobile/Library/Preferences/com.laughingquoll.noctis.plist"
+#define noctis12EnabledPath @"/var/mobile/Library/Preferences/com.laughingquoll.noctis12prefs.plist"
+#define eclipsePath @"/var/mobile/Library/Preferences/com.gmoran.eclipse.plist"
+
 #import "SBSApplicationShortcutItem.h"
 
 @interface SBIconController : UIViewController {}
@@ -35,6 +40,8 @@
 %hook SBIconController
 
 //iOS 10-12 Method
+//Maybe folders use a different method? Or have a different method since I can not use the bundle ID. 
+//I would appreciate some help, or a tester on iOS 12 or below.
 - (id)appIconForceTouchController:(id)arg1 applicationShortcutItemsForGestureRecognizer:(id)arg2 {
 	NSArray *shortcutItems = %orig(arg1, arg2);
 	NSString *bundleID = [self appIconForceTouchController:arg1 applicationBundleIdentifierForGestureRecognizer:arg2];
@@ -108,7 +115,6 @@
 	id iconObject = [arg2 performSelector:@selector(icon)];
 	//Check if it is an app and it has a badge in the first place
 	if ([iconObject isKindOfClass:objc_getClass("SBFolderIcon")]) {
-		//This is a folder, not an app. For now, do nothing!
 		//SBFolderIcon -> "folder" property -> "icons" property is NSArray
 		NSArray *iconsInFolder = [[iconObject performSelector:@selector(folder)] performSelector:@selector(icons)];
 		BOOL folderHasBadge = FALSE;
@@ -152,6 +158,22 @@
 			myImage = [UIImage imageNamed:@"clearbadge-dark" inBundle:bundle compatibleWithTraitCollection:nil];
 		}
 	}
+	else {
+		//Let's check for various popular tweaks, if they are enabled!
+		//Noctis has 2 of them
+		NSDictionary *noctisPrefs = [[NSDictionary alloc] initWithContentsOfFile:noctisEnabledPath];
+		NSDictionary *noctis12Prefs = [[NSDictionary alloc] initWithContentsOfFile:noctis12EnabledPath];
+		BOOL isNoctisEnabled = ([[noctisPrefs objectForKey:@"LQDDarkModeEnabled"] boolValue] || [[noctis12Prefs objectForKey:@"enabled"] boolValue]);
+		
+		//Eclipse
+		NSDictionary *eclipsePrefs = [[NSDictionary alloc] initWithContentsOfFile:eclipsePath];
+		BOOL isEclipseEnabled = [[eclipsePrefs objectForKey:@"enabled"] boolValue];
+		
+		if (isNoctisEnabled || isEclipseEnabled) {
+			myImage = [UIImage imageNamed:@"clearbadge-dark" inBundle:bundle compatibleWithTraitCollection:nil];
+		}
+		
+	}
 	id customIcon = [[objc_getClass("SBSApplicationShortcutCustomImageIcon") alloc] initWithImagePNGData: UIImagePNGRepresentation(myImage)];
 	
 	//Make the clear shortcut
@@ -182,13 +204,29 @@
 	send_type setOffsetIMP = (send_type)[objc_getClass("SBSApplicationShortcutItem") instanceMethodForSelector:setOffsetSEL];
 	setOffsetIMP((__bridge void*)clearItem, setOffsetSEL, 0);
 
-	NSMutableArray *arrayWithClearBadges;
-	if (shortcutItems) {
-		arrayWithClearBadges = [NSMutableArray arrayWithArray: shortcutItems];
-	} else {
-		arrayWithClearBadges = [NSMutableArray new];
+	//First or last option
+	NSDictionary *ourPrefs = [[NSDictionary alloc] initWithContentsOfFile:preferencesPath];
+	BOOL appearsLast = TRUE;
+	if (ourPrefs) {
+		appearsLast = [[ourPrefs objectForKey:@"appearsLast"] boolValue];
 	}
-	[arrayWithClearBadges addObject:clearItem];
+	
+	NSMutableArray *arrayWithClearBadges;
+	if (appearsLast) {
+		if (shortcutItems) {
+			arrayWithClearBadges = [NSMutableArray arrayWithArray: shortcutItems];
+		} else {
+			arrayWithClearBadges = [NSMutableArray new];
+		}
+		[arrayWithClearBadges addObject:clearItem];
+	}
+	else {
+		arrayWithClearBadges = [NSMutableArray new];
+		[arrayWithClearBadges addObject:clearItem];
+		if (shortcutItems) {
+			[arrayWithClearBadges addObjectsFromArray: shortcutItems];
+		}
+	}
 	return arrayWithClearBadges;
 }
 
